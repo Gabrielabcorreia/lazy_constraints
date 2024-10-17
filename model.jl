@@ -39,6 +39,47 @@ end
 subtour(x::AbstractMatrix{VariableRef}) = subtour(value.(x))
 subtour(x::Matrix{Float64}) = subtour(selected_edges(x, size(x, 1)), size(x, 1))
 
+function find_first(tuples::Vector{Tuple{Int, Int}})        # function that finds the first tuple that contains the number "1" in the first element
+    for i in 1:length(tuples)
+        if tuples[i][1] == 1
+            return i
+        end
+    end
+end
+
+function reorganize(tour_edges::Vector{Tuple{Int, Int}})
+    
+    first_index = find_first(tour_edges)
+
+    tour_edges_re = [tour_edges[first_index]]       # Put the first element on the new tour_edges
+    deleteat!(tour_edges, first_index)          # Delete the element of the old tour 
+
+    while !isempty(tour_edges)          
+        last = tour_edges_re[end]
+        found = false
+
+        for i in eachindex(tour_edges)
+            if last[2] == tour_edges[i][1]          # Checks if the second value of the tuple is equal to the first of the other
+                push!(tour_edges_re, tour_edges[i])
+                deleteat!(tour_edges, i)
+                found = true
+                break
+            end
+        end
+
+        if !found
+            for i in eachindex(tour_edges)          
+                if last[2] == tour_edges[i][2]      # Checks if the second value of the tuple is equal to the second of the other
+                    push!(tour_edges_re, reverse(tour_edges[i]))       # Reverse the order
+                    deleteat!(tour_edges, i)
+                    break
+                end
+            end
+        end
+    end
+    return tour_edges_re
+end
+
 function build_tsp_model(instance)
     
     n = instance.n
@@ -61,8 +102,8 @@ function build_tsp_model(instance)
         end
         println("Found cycle of length $(length(cycle))")
         S = [(i, j) for (i, j) in Iterators.product(cycle, cycle) if i < j]
-        con = @build_constraint(
-            sum(lazy_model[:x][i, j] for (i, j) in S) <= length(cycle) - 1,
+        con = @constraint(
+            lazy_model, sum(lazy_model[:x][i, j] for (i, j) in S) <= length(cycle) - 1
         )
         MOI.submit(lazy_model, MOI.LazyConstraint(cb_data), con)
         return
@@ -75,18 +116,13 @@ function build_tsp_model(instance)
     )
 
     optimize!(lazy_model)
-    @assert is_solved_and_feasible(lazy_model)
-    objective_value(lazy_model)
+    
+    @assert JuMP.termination_status(lazy_model) == MOI.OPTIMAL "Erro: cannot find the optimal solution"
 
-    #################################################
-                    # Test #
-    #################################################
-
-    tour_edges = selected_edges(value.(lazy_model[:x]), instance.n)     # Vector that stores the solution paths
-
+    tour_edges = selected_edges(value.(lazy_model[:x]), instance.n)  # Vector that stores the solution paths
     visited = []    
 
-    for (i, j) in tour_edges    # Just stores the ones that are different
+    for (i, j) in tour_edges    # Only stores different visited nodes
         if !(i in visited)
             push!(visited, i)
         end
@@ -96,9 +132,21 @@ function build_tsp_model(instance)
         end
     end
 
-    @assert length(visited) == instance.n "Erro: Was not passed through all points."    # Checks if all points have been passed
+    @assert length(visited) == instance.n "Erro: Não passou por todos os pontos."
+
+    tour_edges_sym = Set{Tuple{Int, Int}}()
+
+    for (i, j) in tour_edges
+        if i < j
+            push!(tour_edges_sym, (i, j))
+        elseif j < i
+            push!(tour_edges_sym, (j, i))
+        end
+    end
 
     plot_tour(instance.X, instance.Y, value.(lazy_model[:x]))
 
-    return tour_edges, objective_value(lazy_model)
+    results = reorganize(collect(tour_edges_sym))       # Turns it into a vector and puts it in the function
+
+    return results, objective_value(lazy_model)
 end

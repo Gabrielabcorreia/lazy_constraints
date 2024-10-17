@@ -2,21 +2,21 @@ include("model.jl")
 include("instance.jl")
 
 println("What you want to do (1 - Open archive) (2 - Make a random) (3 - Create a random archive) ?: ")     # The third is just for practice
-auxiliar = parse(Int, readline())
+assistant = parse(Int, readline())
 
-if auxiliar == 1
+if assistant == 1
     println("Put the name of the archive(put '.txt'): ")
     name = readline()
 
     insta = Tsp_model.load_instance(name)
     tour_edges, cost = build_tsp_model(insta)
 
-elseif auxiliar == 2
+elseif assistant == 2
 
     insta = Tsp_model.generate_distance()
     tour_edges, cost = build_tsp_model(insta)
 
-elseif auxiliar == 3
+elseif assistant == 3
 
     println("Put the name of the archive(put '.txt'): ")
     name = readline()

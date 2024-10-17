@@ -9,13 +9,32 @@ struct distance_matrix
     n::Int64
 end
 
+function verify_instance(instance, name)
+    open(name, "r") do file 
+        n2 = parse(Int, readline(file))
+
+        X2 = [parse(Float64, readline(file)) for i in 1:n2]
+        Y2 = [parse(Float64, readline(file)) for i in 1:n2]
+
+        d2 = [parse(Float64, readline(file)) for i in 1:(n2 * n2)]
+        d2 = reshape(d2, n2, n2)
+
+        if (instance.X != X2) || (instance.Y != Y2) || (instance.d != d2)
+            return false
+        else
+            return true
+        end
+    end
+end
+
 function create_instance(name)
     
     n1 = 5
-    rng = Random.MersenneTwister(1)
+    rng = Random.MersenneTwister(3)
     X1 = 5 * rand(rng, n1)
     Y1 = 5 * rand(rng, n1)
     d1 = [sqrt((X1[i] - X1[j])^2 + (Y1[i] - Y1[j])^2) for i in 1:n1, j in 1:n1]
+    instance = distance_matrix(X1, Y1, d1, n1)
 
     open(name, "w") do io
         println(io, n1)
@@ -33,6 +52,8 @@ function create_instance(name)
         end
     end
 
+    #   Verification from file
+    @assert verify_instance(instance, name) == true "Erro: was not stored correctly"
 end
 
 function load_instance(name)
